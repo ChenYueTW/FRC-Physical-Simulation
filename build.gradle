@@ -53,6 +53,21 @@ test {
     useJUnitPlatform()
 }
 
+// ---- Run the visualization demo (no HAL): starts an NT4 server for AdvantageScope ----
+// GradleRIO's `extractReleaseNative` unpacks the desktop JNI to build/jni/release; we put that on
+// the library path (and PATH, so Windows resolves dependent DLLs) and run the plain-Java demo.
+tasks.register('runSimDemo', JavaExec) {
+    group = 'simulation'
+    description = 'Runs the headless sim demo, publishing FieldSimulation/* to NetworkTables (localhost) for AdvantageScope.'
+    dependsOn 'classes', 'extractReleaseNative'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'frc.physicssim.demo.SimDemo'
+
+    def nativeDir = layout.buildDirectory.dir('jni/release').get().asFile
+    systemProperty 'java.library.path', nativeDir.absolutePath
+    environment 'PATH', nativeDir.absolutePath + File.pathSeparator + System.getenv('PATH')
+}
+
 // ---- Code formatting (run manually: ./gradlew spotlessApply) ----
 spotless {
     java {

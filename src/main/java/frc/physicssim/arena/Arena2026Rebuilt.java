@@ -5,6 +5,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import frc.physicssim.SimConstants;
 import frc.physicssim.SimConstants.Rebuilt2026;
 import frc.physicssim.gamepieces.rebuilt.RebuiltFuelOnField;
+import frc.physicssim.terrain.BumpRegion;
 import org.dyn4j.geometry.Geometry;
 
 /**
@@ -22,6 +23,11 @@ public class Arena2026Rebuilt extends SimulatedArena {
     private static final double HUB_RADIUS_METERS = 0.6;
     private static final double WALL_THICKNESS_METERS = 0.1;
 
+    // TODO: confirm BUMP geometry/placement against the official field drawings.
+    public static final double BUMP_X_START_METERS = 5.0;
+    public static final double BUMP_X_END_METERS = 5.8;
+    public static final double BUMP_PEAK_HEIGHT_METERS = 0.08;
+
     public Arena2026Rebuilt() {
         super(buildFieldMap());
     }
@@ -35,6 +41,15 @@ public class Arena2026Rebuilt extends SimulatedArena {
                 new Pose2d(HUB_CENTER, new edu.wpi.first.math.geometry.Rotation2d()),
                 SimConstants.CARPET_FRICTION_COEFFICIENT);
         return map;
+    }
+
+    /**
+     * The REBUILT BUMP, spanning the full field width. Attach it to a drivetrain with {@code
+     * drivetrain.setTerrain(Arena2026Rebuilt.rebuiltBump())} so the robot tilts and slows crossing it.
+     */
+    public static BumpRegion rebuiltBump() {
+        return new BumpRegion(
+                BUMP_X_START_METERS, BUMP_X_END_METERS, 0.0, Rebuilt2026.FIELD_WIDTH_METERS, BUMP_PEAK_HEIGHT_METERS);
     }
 
     /**

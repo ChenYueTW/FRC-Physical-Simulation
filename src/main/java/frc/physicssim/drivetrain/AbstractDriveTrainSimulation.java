@@ -3,9 +3,11 @@ package frc.physicssim.drivetrain;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import frc.physicssim.SimConstants;
 import frc.physicssim.SimulatedComponent;
+import frc.physicssim.terrain.TerrainProvider;
 import frc.physicssim.util.GeometryConvert;
 import org.dyn4j.dynamics.Body;
 import org.dyn4j.geometry.Geometry;
@@ -29,6 +31,8 @@ public abstract class AbstractDriveTrainSimulation extends Body implements Simul
     /** Maximum propelling force before the wheels slip: {@code COF * m * g}. */
     protected final double maxTractionForceNewtons;
 
+    private TerrainProvider terrain = TerrainProvider.FLAT;
+
     protected AbstractDriveTrainSimulation(DriveTrainSimulationConfig config, Pose2d initialPose) {
         this.config = config;
 
@@ -48,11 +52,16 @@ public abstract class AbstractDriveTrainSimulation extends Body implements Simul
     }
 
     /**
-     * Current 3D pose of the chassis. Flat (z=0, no tilt) here; a terrain overlay (e.g. a bump) may
-     * replace this with a tilted pose for visualization.
+     * Current 3D pose of the chassis. Flat (z=0, no tilt) on open carpet; over a {@link
+     * TerrainProvider} such as a bump, this is raised and tilted for visualization.
      */
     public Pose3d getActualPose3d() {
-        return new Pose3d(getActualPose());
+        return terrain.elevate(getActualPose());
+    }
+
+    /** Sets the terrain the robot is driving on (default {@link TerrainProvider#FLAT}). */
+    public void setTerrain(TerrainProvider terrain) {
+        this.terrain = terrain;
     }
 
     /** Current heading of the chassis. */
@@ -115,6 +124,14 @@ public abstract class AbstractDriveTrainSimulation extends Body implements Simul
             fy *= scale;
         }
         applyForce(new Vector2(fx, fy));
+
+        // ---- Terrain: along-slope component of gravity (resists climbing, assists descending) ----
+        Translation2d gradient = terrain.gradient(getActualPose().getTranslation());
+        if (gradient.getNorm() > 1e-9) {
+            applyForce(new Vector2(
+                    -config.massKg * SimConstants.GRAVITY * gradient.getX(),
+                    -config.massKg * SimConstants.GRAVITY * gradient.getY()));
+        }
 
         // ---- Rotation: acceleration-limited angular velocity controller ----
         double alpha = (targetOmegaRadPerSec - getAngularVelocity()) / dt;

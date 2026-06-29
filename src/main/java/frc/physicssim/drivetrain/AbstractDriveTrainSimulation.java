@@ -60,6 +60,16 @@ public abstract class AbstractDriveTrainSimulation extends Body implements Simul
         return new Rotation2d(getTransform().getRotationAngle());
     }
 
+    /** Bumper-to-bumper length along the robot's forward (+X) axis (m). */
+    public double getBumperLengthMeters() {
+        return config.bumperLengthMeters;
+    }
+
+    /** Bumper-to-bumper width along the robot's left (+Y) axis (m). */
+    public double getBumperWidthMeters() {
+        return config.bumperWidthMeters;
+    }
+
     /** Actual field-relative velocity, as measured from the physics body. */
     public ChassisSpeeds getActualFieldSpeeds() {
         Vector2 v = getLinearVelocity();

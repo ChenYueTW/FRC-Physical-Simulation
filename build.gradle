@@ -1,0 +1,69 @@
+import org.gradle.internal.os.OperatingSystem
+
+plugins {
+    id 'java-library'
+    id 'edu.wpi.first.GradleRIO' version '2026.2.1'
+    id 'com.diffplug.spotless' version '7.0.0.BETA4'
+}
+
+ext.wpilibVersion = '2026.2.1'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+    // WPILib local maven (offline-first resolution of WPILib artifacts).
+    String frcYear = '2026'
+    File frcHome
+    if (OperatingSystem.current().isWindows()) {
+        String publicFolder = System.getenv('PUBLIC')
+        if (publicFolder == null) {
+            publicFolder = 'C:\\Users\\Public'
+        }
+        frcHome = new File(new File(publicFolder, 'wpilib'), frcYear)
+    } else {
+        frcHome = new File(new File(System.getProperty('user.home'), 'wpilib'), frcYear)
+    }
+    maven {
+        name = 'frcHome'
+        url = new File(frcHome, 'maven')
+    }
+}
+
+dependencies {
+    // ---- WPILib (geometry, kinematics, units, datalog, networktables, motor models) ----
+    implementation wpi.java.deps.wpilib()
+
+    // ---- 2D rigid-body physics engine (collision, friction, dynamics) ----
+    api 'org.dyn4j:dyn4j:5.0.2'
+
+    // ---- Desktop native JNI libraries (so wpimath/wpiutil/ntcore load when simulating/testing) ----
+    nativeRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.desktop)
+    simulationRelease wpi.sim.enableRelease()
+
+    // ---- Tests ----
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// ---- Code formatting (run manually: ./gradlew spotlessApply) ----
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/build-*/**'
+        }
+        toggleOffOn()
+        palantirJavaFormat('2.50.0')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}

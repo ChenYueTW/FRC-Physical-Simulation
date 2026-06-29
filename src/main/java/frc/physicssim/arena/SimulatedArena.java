@@ -3,6 +3,7 @@ package frc.physicssim.arena;
 import edu.wpi.first.math.geometry.Pose3d;
 import frc.physicssim.SimConstants;
 import frc.physicssim.SimulatedComponent;
+import frc.physicssim.drivetrain.AbstractDriveTrainSimulation;
 import frc.physicssim.gamepieces.GamePieceOnField;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -143,5 +144,22 @@ public abstract class SimulatedArena {
     /** Unregisters a component. Returns whether it was present. */
     public synchronized boolean removeComponent(SimulatedComponent component) {
         return components.remove(component);
+    }
+
+    // ---- Drivetrains ----
+
+    /**
+     * Adds a drivetrain to the field: its body becomes an active collision body and it is sub-ticked
+     * each physics step so its commanded motion is applied.
+     */
+    public synchronized void addDriveTrain(AbstractDriveTrainSimulation driveTrain) {
+        world.addBody(driveTrain);
+        components.add(driveTrain);
+    }
+
+    /** Removes a drivetrain from the field. Returns whether it was present. */
+    public synchronized boolean removeDriveTrain(AbstractDriveTrainSimulation driveTrain) {
+        components.remove(driveTrain);
+        return world.removeBody(driveTrain);
     }
 }

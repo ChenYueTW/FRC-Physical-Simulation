@@ -5,6 +5,7 @@ import frc.physicssim.SimConstants;
 import frc.physicssim.SimulatedComponent;
 import frc.physicssim.drivetrain.AbstractDriveTrainSimulation;
 import frc.physicssim.gamepieces.GamePieceOnField;
+import frc.physicssim.gamepieces.GamePieceProjectile;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,6 +49,7 @@ public abstract class SimulatedArena {
 
     private final World<Body> world;
     private final Set<GamePieceOnField> gamePieces = new LinkedHashSet<>();
+    private final Set<GamePieceProjectile> projectiles = new LinkedHashSet<>();
     private final List<SimulatedComponent> components = new ArrayList<>();
 
     private double periodSeconds = SimConstants.DEFAULT_PERIOD_SECONDS;
@@ -132,6 +134,31 @@ public abstract class SimulatedArena {
     /** Array form of {@link #getGamePiecesByType(String)}, convenient for AdvantageScope logging. */
     public synchronized Pose3d[] getGamePiecesArrayByType(String type) {
         return getGamePiecesByType(type).toArray(new Pose3d[0]);
+    }
+
+    // ---- Projectiles (airborne game pieces, simulated as a 3D ballistic overlay) ----
+
+    /** Launches a projectile: it is sub-ticked each step and tracked for logging until it lands. */
+    public synchronized void addProjectile(GamePieceProjectile projectile) {
+        projectiles.add(projectile);
+        components.add(projectile);
+    }
+
+    /** Removes a projectile (called automatically when it lands or hits its target). */
+    public synchronized boolean removeProjectile(GamePieceProjectile projectile) {
+        components.remove(projectile);
+        return projectiles.remove(projectile);
+    }
+
+    /** Poses of all airborne projectiles of the given type, for logging their flight. */
+    public synchronized Pose3d[] getProjectilesArrayByType(String type) {
+        List<Pose3d> poses = new ArrayList<>();
+        for (GamePieceProjectile projectile : projectiles) {
+            if (projectile.type().equals(type)) {
+                poses.add(projectile.pose3d());
+            }
+        }
+        return poses.toArray(new Pose3d[0]);
     }
 
     // ---- High-frequency components (drivetrains, projectiles, terrain) ----

@@ -2,7 +2,7 @@ package frc.physicssim.gamepieces;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
-import edu.wpi.first.math.geometry.Rotation3d;
+import frc.physicssim.terrain.TerrainProvider;
 import frc.physicssim.util.GeometryConvert;
 import org.dyn4j.dynamics.Body;
 import org.dyn4j.geometry.Convex;
@@ -12,13 +12,16 @@ import org.dyn4j.geometry.MassType;
  * A game piece resting on (and sliding/rolling across) the field floor, simulated as a dyn4j rigid
  * body in the top-down X-Y plane. It collides with robots, field walls, and other pieces.
  *
- * <p>The piece's height above the carpet ({@code zHeight}) is constant in this 2D model and is only
- * used to build the reported {@link #pose3d()} — vertical motion is reserved for {@link
+ * <p>The piece's height above the carpet ({@code zHeight}) is constant relative to the local terrain
+ * surface — flat carpet by default, but if a {@link TerrainProvider} is set (see {@link
+ * #setTerrain}), it rides up and tilts over that terrain (e.g. a BUMP) in the reported {@link
+ * #pose3d()}, the same way a drivetrain does. Vertical *flight* is reserved for {@link
  * GamePieceProjectile}.
  */
 public class GamePieceOnField extends Body implements GamePiece {
     private final String type;
     private final double zHeight;
+    private TerrainProvider terrain = TerrainProvider.FLAT;
 
     /**
      * @param type type tag used for logging/grouping
@@ -56,6 +59,20 @@ public class GamePieceOnField extends Body implements GamePiece {
         return type;
     }
 
+    /** Sets the terrain this piece rests on (default {@link TerrainProvider#FLAT}). */
+    public void setTerrain(TerrainProvider terrain) {
+        this.terrain = terrain;
+    }
+
+    public TerrainProvider getTerrain() {
+        return terrain;
+    }
+
+    /** Height of this piece's center above the local terrain surface (its radius, for a ball). */
+    public double zHeight() {
+        return zHeight;
+    }
+
     /** Floor-plane pose from the underlying dyn4j body transform. */
     public Pose2d pose2d() {
         return GeometryConvert.toWpilibPose(getTransform());
@@ -63,11 +80,7 @@ public class GamePieceOnField extends Body implements GamePiece {
 
     @Override
     public Pose3d pose3d() {
-        Pose2d pose2d = pose2d();
-        return new Pose3d(
-                pose2d.getX(),
-                pose2d.getY(),
-                zHeight,
-                new Rotation3d(0.0, 0.0, pose2d.getRotation().getRadians()));
+        Pose3d surface = terrain.elevate(pose2d());
+        return new Pose3d(surface.getX(), surface.getY(), surface.getZ() + zHeight, surface.getRotation());
     }
 }

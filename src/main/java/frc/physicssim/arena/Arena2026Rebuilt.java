@@ -7,28 +7,32 @@ import frc.physicssim.SimConstants;
 import frc.physicssim.SimConstants.Rebuilt2026;
 import frc.physicssim.gamepieces.rebuilt.RebuiltFuelOnField;
 import frc.physicssim.terrain.BumpRegion;
+import frc.physicssim.terrain.CompositeTerrain;
+import java.util.List;
 import java.util.Random;
 import org.dyn4j.geometry.Geometry;
 
 /**
  * The 2026 <b>REBUILT</b> arena: a 16.54 x 8.07 m field bounded by perimeter walls, with each
- * alliance's 47 in square HUB as a collision obstacle (blue at ~4.03 m from the blue wall, red
- * mirrored), and helpers to (re)generate the starting FUEL.
+ * alliance's 47 in square HUB and both TRENCH support legs as collision obstacles, and helpers to
+ * (re)generate the starting FUEL.
  *
- * <p>Dimensions and positions come from the official 2026 Game Manual / field drawings. Values still
- * marked {@code TODO} (the exact DEPOT position along the wall, the full multi-BUMP layout, the HUB
- * opening height) are approximations pending the field CAD.
+ * <p>Dimensions and positions come from the official field-dimension drawings (FE-2026) and the
+ * AprilTag coordinate table, cross-checked against each other. Values still marked {@code TODO} (the
+ * exact DEPOT position along the wall, the HUB opening height) are approximations pending further
+ * confirmation.
  */
 public class Arena2026Rebuilt extends SimulatedArena {
     private static final double WALL_THICKNESS_METERS = 0.1;
 
-    // BUMP crossable by the demo: the blue-side bump on the -Y side of the blue HUB, aligned with the
-    // HUB in X. TODO: the real field has bumps flanking each HUB on both sides.
-    private static final double BUMP_CENTER_X = Rebuilt2026.HUB_DISTANCE_FROM_WALL_METERS;
-    private static final double BUMP_CENTER_Y = 2.5;
+    // HUB and TRENCH sit on the same X (distance from the alliance wall); BUMP has its own (see
+    // Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS).
+    private static final double ELEMENT_ROW_X = Rebuilt2026.HUB_DISTANCE_FROM_WALL_METERS;
 
     public Arena2026Rebuilt() {
         super(buildFieldMap());
+        // All four BUMPs apply automatically to every drivetrain/game piece added to this arena.
+        setTerrain(rebuiltBumps());
     }
 
     private static FieldMap buildFieldMap() {
@@ -37,6 +41,19 @@ public class Arena2026Rebuilt extends SimulatedArena {
         // Both HUBs are solid square obstacles robots and FUEL bounce off.
         addHub(map, Rebuilt2026.BLUE_HUB_CENTER);
         addHub(map, Rebuilt2026.RED_HUB_CENTER);
+        // Both TRENCHes' support legs (the passage underneath is left clear).
+        addTrenchLegs(
+                map,
+                Rebuilt2026.FIELD_LENGTH_METERS - ELEMENT_ROW_X,
+                Rebuilt2026.TRENCH_NEAR_FIELD_EDGE_OUTER_Y_METERS,
+                +1.0);
+        addTrenchLegs(
+                map,
+                Rebuilt2026.FIELD_LENGTH_METERS - ELEMENT_ROW_X,
+                Rebuilt2026.TRENCH_FAR_FIELD_EDGE_OUTER_Y_METERS,
+                -1.0);
+        addTrenchLegs(map, ELEMENT_ROW_X, Rebuilt2026.TRENCH_NEAR_FIELD_EDGE_OUTER_Y_METERS, +1.0);
+        addTrenchLegs(map, ELEMENT_ROW_X, Rebuilt2026.TRENCH_FAR_FIELD_EDGE_OUTER_Y_METERS, -1.0);
         return map;
     }
 
@@ -48,16 +65,52 @@ public class Arena2026Rebuilt extends SimulatedArena {
     }
 
     /**
-     * A representative REBUILT BUMP (official 1.854 x 1.128 x 0.165 m), on the -Y side of the blue
-     * HUB. Attach it with {@code drivetrain.setTerrain(Arena2026Rebuilt.rebuiltBump())} so the robot
-     * tilts and slows crossing it.
+     * A TRENCH's two solid support legs, with the {@value Rebuilt2026#TRENCH_PASSAGE_WIDTH_METERS} m
+     * passage between them left open so robots can drive underneath.
+     *
+     * @param outerEdgeY the trench's edge closest to the field's own long edge (not its center — see
+     *     {@link Rebuilt2026#TRENCH_NEAR_FIELD_EDGE_OUTER_Y_METERS})
+     * @param towardCenterSign {@code +1} if the trench extends toward increasing Y from {@code
+     *     outerEdgeY} (i.e. {@code outerEdgeY} is near {@code Y=0}), {@code -1} if it extends toward
+     *     decreasing Y (i.e. {@code outerEdgeY} is near the far long edge)
      */
-    public static BumpRegion rebuiltBump() {
+    private static void addTrenchLegs(FieldMap map, double centerX, double outerEdgeY, double towardCenterSign) {
+        double innerEdgeY = outerEdgeY + towardCenterSign * Rebuilt2026.TRENCH_WIDTH_METERS;
+        double halfLeg = Rebuilt2026.TRENCH_LEG_WIDTH_METERS / 2.0;
+        // Each leg's OUTWARD face sits on its respective trench edge; its center is half a leg-width
+        // in from that edge.
+        double outerLegCenterY = outerEdgeY + towardCenterSign * halfLeg;
+        double innerLegCenterY = innerEdgeY - towardCenterSign * halfLeg;
+        for (double legCenterY : new double[] {outerLegCenterY, innerLegCenterY}) {
+            map.addObstacle(
+                    Geometry.createRectangle(Rebuilt2026.TRENCH_DEPTH_METERS, Rebuilt2026.TRENCH_LEG_WIDTH_METERS),
+                    new Pose2d(centerX, legCenterY, Rotation2d.kZero),
+                    SimConstants.CARPET_FRICTION_COEFFICIENT);
+        }
+    }
+
+    /**
+     * All four REBUILT BUMPs (official 1.854 x 1.128 x 0.165 m each), flanking both HUBs. Attach with
+     * {@code drivetrain.setTerrain(Arena2026Rebuilt.rebuiltBumps())} so the robot tilts and slows
+     * crossing whichever one it's on.
+     */
+    public static CompositeTerrain rebuiltBumps() {
+        double offset = Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+        double blueBumpX = Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        double redBumpX = Rebuilt2026.FIELD_LENGTH_METERS - Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        return new CompositeTerrain(List.of(
+                bumpAt(blueBumpX, Rebuilt2026.FIELD_CENTER_Y - offset),
+                bumpAt(blueBumpX, Rebuilt2026.FIELD_CENTER_Y + offset),
+                bumpAt(redBumpX, Rebuilt2026.FIELD_CENTER_Y - offset),
+                bumpAt(redBumpX, Rebuilt2026.FIELD_CENTER_Y + offset)));
+    }
+
+    private static BumpRegion bumpAt(double centerX, double centerY) {
         return new BumpRegion(
-                BUMP_CENTER_X - Rebuilt2026.BUMP_DEPTH_METERS / 2.0,
-                BUMP_CENTER_X + Rebuilt2026.BUMP_DEPTH_METERS / 2.0,
-                BUMP_CENTER_Y - Rebuilt2026.BUMP_WIDTH_METERS / 2.0,
-                BUMP_CENTER_Y + Rebuilt2026.BUMP_WIDTH_METERS / 2.0,
+                centerX - Rebuilt2026.BUMP_DEPTH_METERS / 2.0,
+                centerX + Rebuilt2026.BUMP_DEPTH_METERS / 2.0,
+                centerY - Rebuilt2026.BUMP_WIDTH_METERS / 2.0,
+                centerY + Rebuilt2026.BUMP_WIDTH_METERS / 2.0,
                 Rebuilt2026.BUMP_HEIGHT_METERS);
     }
 

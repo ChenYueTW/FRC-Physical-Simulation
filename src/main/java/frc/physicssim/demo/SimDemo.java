@@ -33,8 +33,10 @@ public final class SimDemo {
     private static final double DT = 0.02;
 
     private final Arena2026Rebuilt arena = new Arena2026Rebuilt();
+    // y=1.5: inside the near-wall BUMP's span but clear of both TRENCH support legs (with margin for
+    // the robot's bumper width).
     private final SwerveDriveSimulation robot =
-            new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(1.5, 2.5, Rotation2d.kZero));
+            new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(1.5, 1.5, Rotation2d.kZero));
     private IntakeSimulation intake;
 
     private double elapsed = 0.0;
@@ -57,8 +59,8 @@ public final class SimDemo {
 
         // Fill the field with the full official FUEL layout (~408 in the NEUTRAL ZONE + 24 per DEPOT).
         arena.regenerateFieldGamePieces();
+        // The arena's BUMPs (and FUEL's terrain-awareness) apply automatically on addDriveTrain/addGamePiece.
         arena.addDriveTrain(robot);
-        robot.setTerrain(Arena2026Rebuilt.rebuiltBump());
         intake = IntakeSimulation.overTheBumperIntake(arena, robot, FUEL, IntakeSimulation.Side.FRONT, 0.7, 0.4, 5);
 
         System.out.println("FRC-Physical-Simulation demo: NetworkTables server up on localhost.");

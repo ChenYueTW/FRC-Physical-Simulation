@@ -8,17 +8,20 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import frc.physicssim.SimConstants.Rebuilt2026;
 import frc.physicssim.arena.Arena2026Rebuilt;
 import frc.physicssim.drivetrain.DriveTrainSimulationConfig;
 import frc.physicssim.drivetrain.SwerveDriveSimulation;
+import frc.physicssim.gamepieces.rebuilt.RebuiltFuelOnField;
 import org.junit.jupiter.api.Test;
 
 class BumpRegionTest {
-    // The REBUILT bump spans x in [~3.46, ~4.59], y in [~1.57, ~3.43] (blue -Y side of the HUB).
+    // A standalone bump for pure geometry tests, independent of the REBUILT field layout: x in
+    // [3.0, 4.0], y in [0.0, 5.0], 0.2 m crest.
     private static final double ON_BUMP_Y = 2.5;
 
     private static BumpRegion bump() {
-        return Arena2026Rebuilt.rebuiltBump();
+        return new BumpRegion(3.0, 4.0, 0.0, 5.0, 0.2);
     }
 
     private static Pose2d at(double x) {
@@ -37,33 +40,34 @@ class BumpRegionTest {
     @Test
     void noseUpOnTheClimbAndRaised() {
         BumpRegion bump = bump();
-        Pose3d pose = bump.elevate(at(3.7)); // first half -> climbing
+        Pose3d pose = bump.elevate(at(3.2)); // first half -> climbing
         assertTrue(pose.getZ() > 0.0, "robot should be raised, z=" + pose.getZ());
         assertTrue(
                 pose.getRotation().getY() < 0.0,
                 "nose should pitch up, pitch=" + pose.getRotation().getY());
-        assertTrue(bump.gradient(new Translation2d(3.7, ON_BUMP_Y)).getX() > 0.0, "uphill gradient");
+        assertTrue(bump.gradient(new Translation2d(3.2, ON_BUMP_Y)).getX() > 0.0, "uphill gradient");
     }
 
     @Test
     void noseDownOnTheDescent() {
         BumpRegion bump = bump();
-        Pose3d pose = bump.elevate(at(4.4)); // second half -> descending
+        Pose3d pose = bump.elevate(at(3.8)); // second half -> descending
         assertTrue(
                 pose.getRotation().getY() > 0.0,
                 "nose should pitch down, pitch=" + pose.getRotation().getY());
-        assertTrue(bump.gradient(new Translation2d(4.4, ON_BUMP_Y)).getX() < 0.0, "downhill gradient");
+        assertTrue(bump.gradient(new Translation2d(3.8, ON_BUMP_Y)).getX() < 0.0, "downhill gradient");
     }
 
+    /** {@link Arena2026Rebuilt} sets its own terrain automatically; addDriveTrain picks it up. */
     @Test
-    void robotCrossesBumpAndIsElevatedDuringCrossing() {
+    void robotCrossesRealBumpAndIsElevatedDuringCrossing() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        SwerveDriveSimulation robot = new SwerveDriveSimulation(
-                new DriveTrainSimulationConfig(), new Pose2d(2.5, ON_BUMP_Y, Rotation2d.kZero));
+        double laneY = Rebuilt2026.FIELD_CENTER_Y - Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+        SwerveDriveSimulation robot =
+                new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(0.3, laneY, Rotation2d.kZero));
         arena.addDriveTrain(robot);
-        robot.setTerrain(Arena2026Rebuilt.rebuiltBump());
 
-        robot.setRobotSpeeds(new ChassisSpeeds(2.0, 0.0, 0.0));
+        robot.setRobotSpeeds(new ChassisSpeeds(1.5, 0.0, 0.0));
         double maxZ = 0.0;
         for (int i = 0; i < 200; i++) {
             arena.simulationPeriodic();
@@ -71,7 +75,71 @@ class BumpRegionTest {
         }
 
         assertTrue(maxZ > 0.05, "robot should have been lifted near the crest, maxZ=" + maxZ);
-        assertTrue(robot.getActualPose().getX() > 5.5, "robot should have crossed the bump");
+        assertTrue(
+                robot.getActualPose().getX() > Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS,
+                "robot should have crossed the bump");
+    }
+
+    /** Both alliance sides get their own pair of BUMPs (left and right of each HUB). */
+    @Test
+    void bothAlliancesBumpsElevateRobots() {
+        Arena2026Rebuilt arena = new Arena2026Rebuilt();
+        double blueX = Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        double redX = Rebuilt2026.FIELD_LENGTH_METERS - Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        double leftY = Rebuilt2026.FIELD_CENTER_Y - Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+        double rightY = Rebuilt2026.FIELD_CENTER_Y + Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+
+        assertTrue(arena.getTerrain()
+                        .elevate(new Pose2d(blueX, leftY, Rotation2d.kZero))
+                        .getZ()
+                > 0.0);
+        assertTrue(arena.getTerrain()
+                        .elevate(new Pose2d(blueX, rightY, Rotation2d.kZero))
+                        .getZ()
+                > 0.0);
+        assertTrue(arena.getTerrain()
+                        .elevate(new Pose2d(redX, leftY, Rotation2d.kZero))
+                        .getZ()
+                > 0.0);
+        assertTrue(arena.getTerrain()
+                        .elevate(new Pose2d(redX, rightY, Rotation2d.kZero))
+                        .getZ()
+                > 0.0);
+    }
+
+    /** FUEL rolling over a BUMP rides up and tilts, same as a drivetrain. */
+    @Test
+    void fuelIsElevatedCrossingABump() {
+        Arena2026Rebuilt arena = new Arena2026Rebuilt();
+        double laneY = Rebuilt2026.FIELD_CENTER_Y - Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+        double bumpX = Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        RebuiltFuelOnField fuel = new RebuiltFuelOnField(new Translation2d(bumpX, laneY));
+        arena.addGamePiece(fuel);
+
+        assertTrue(
+                fuel.pose3d().getZ() > Rebuilt2026.FUEL_RADIUS_METERS,
+                "fuel should be raised above its flat resting height, z="
+                        + fuel.pose3d().getZ());
+    }
+
+    /** FUEL placed on a BUMP rolls off it under gravity, same as the drivetrain slope force. */
+    @Test
+    void fuelRollsOffABumpUnderGravity() {
+        Arena2026Rebuilt arena = new Arena2026Rebuilt();
+        double laneY = Rebuilt2026.FIELD_CENTER_Y - Rebuilt2026.BUMP_CENTER_Y_OFFSET_METERS;
+        double bumpX = Rebuilt2026.BUMP_DISTANCE_FROM_WALL_METERS;
+        // Placed on the uphill (near) half of the bump, at rest.
+        double startX = bumpX - Rebuilt2026.BUMP_DEPTH_METERS / 4.0;
+        RebuiltFuelOnField fuel = new RebuiltFuelOnField(new Translation2d(startX, laneY));
+        arena.addGamePiece(fuel);
+
+        for (int i = 0; i < 100; i++) {
+            arena.simulationPeriodic();
+        }
+
+        assertTrue(
+                fuel.pose2d().getX() < startX,
+                "fuel should have rolled back downhill, x=" + fuel.pose2d().getX());
     }
 
     @Test
@@ -84,7 +152,7 @@ class BumpRegionTest {
         SwerveDriveSimulation robot = new SwerveDriveSimulation(weak, new Pose2d(5.1, 1.5, Rotation2d.kZero));
         arena.addDriveTrain(robot);
         BumpRegion steep = new BumpRegion(5.0, 5.5, 0.0, 8.0, 0.2);
-        robot.setTerrain(steep);
+        robot.setTerrain(steep); // overrides the arena's auto-applied terrain for this test
 
         robot.setRobotSpeeds(new ChassisSpeeds(0.0, 0.0, 0.0)); // try to hold position
         for (int i = 0; i < 50; i++) {

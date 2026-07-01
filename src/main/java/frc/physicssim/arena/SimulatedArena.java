@@ -1,16 +1,19 @@
 package frc.physicssim.arena;
 
 import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import frc.physicssim.SimConstants;
 import frc.physicssim.SimulatedComponent;
 import frc.physicssim.drivetrain.AbstractDriveTrainSimulation;
 import frc.physicssim.gamepieces.GamePieceOnField;
 import frc.physicssim.gamepieces.GamePieceProjectile;
+import frc.physicssim.terrain.TerrainProvider;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.dyn4j.dynamics.Body;
+import org.dyn4j.geometry.Vector2;
 import org.dyn4j.world.PhysicsWorld;
 import org.dyn4j.world.World;
 
@@ -54,6 +57,7 @@ public abstract class SimulatedArena {
 
     private double periodSeconds = SimConstants.DEFAULT_PERIOD_SECONDS;
     private int subTicks = SimConstants.DEFAULT_SUB_TICKS;
+    private TerrainProvider terrain = TerrainProvider.FLAT;
 
     /** Builds the world from a season field map. */
     protected SimulatedArena(FieldMap fieldMap) {
@@ -67,6 +71,27 @@ public abstract class SimulatedArena {
     /** The underlying dyn4j world — for advanced use (contact listeners, custom bodies). */
     public World<Body> world() {
         return world;
+    }
+
+    /**
+     * Sets the field's terrain (e.g. the BUMPs). Applied automatically to every game piece and
+     * drivetrain already on the field, and to any added afterward, so both feel the same slope
+     * gravity and report the same tilted/raised {@code Pose3d} while crossing it.
+     */
+    public synchronized void setTerrain(TerrainProvider terrain) {
+        this.terrain = terrain;
+        for (GamePieceOnField gamePiece : gamePieces) {
+            gamePiece.setTerrain(terrain);
+        }
+        for (SimulatedComponent component : components) {
+            if (component instanceof AbstractDriveTrainSimulation driveTrain) {
+                driveTrain.setTerrain(terrain);
+            }
+        }
+    }
+
+    public TerrainProvider getTerrain() {
+        return terrain;
     }
 
     /**
@@ -89,7 +114,24 @@ public abstract class SimulatedArena {
             for (SimulatedComponent component : new ArrayList<>(components)) {
                 component.simulationSubTick(i, subDt);
             }
+            applyTerrainSlopeForceToGamePieces();
             world.step(1, subDt);
+        }
+    }
+
+    /** Feels the along-slope component of gravity, same as a drivetrain, so FUEL rolls off a BUMP. */
+    private void applyTerrainSlopeForceToGamePieces() {
+        if (terrain == TerrainProvider.FLAT) {
+            return;
+        }
+        for (GamePieceOnField gamePiece : gamePieces) {
+            Translation2d gradient = terrain.gradient(gamePiece.pose2d().getTranslation());
+            if (gradient.getNorm() != 0.0) {
+                double mass = gamePiece.getMass().getMass();
+                gamePiece.applyForce(new Vector2(
+                        -mass * SimConstants.GRAVITY * gradient.getX(),
+                        -mass * SimConstants.GRAVITY * gradient.getY()));
+            }
         }
     }
 
@@ -97,6 +139,7 @@ public abstract class SimulatedArena {
 
     /** Adds a game piece to the field; it becomes an active collision body immediately. */
     public synchronized void addGamePiece(GamePieceOnField gamePiece) {
+        gamePiece.setTerrain(terrain);
         world.addBody(gamePiece);
         gamePieces.add(gamePiece);
     }
@@ -180,6 +223,7 @@ public abstract class SimulatedArena {
      * each physics step so its commanded motion is applied.
      */
     public synchronized void addDriveTrain(AbstractDriveTrainSimulation driveTrain) {
+        driveTrain.setTerrain(terrain);
         world.addBody(driveTrain);
         components.add(driveTrain);
     }

@@ -30,7 +30,7 @@ class SimulatedArenaTest {
     @Test
     void undisturbedFuelStaysPut() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        Translation2d start = new Translation2d(2.0, 2.0); // clear of the HUBs and walls
+        Translation2d start = new Translation2d(7.0, 4.0); // clear of the HUBs, BUMPs, TRENCHes, and walls
         RebuiltFuelOnField fuel = new RebuiltFuelOnField(start);
         arena.addGamePiece(fuel);
 

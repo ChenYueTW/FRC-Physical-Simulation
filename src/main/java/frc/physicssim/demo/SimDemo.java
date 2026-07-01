@@ -55,9 +55,8 @@ public final class SimDemo {
         nt.startServer();
         SimLogger logger = new SimLogger(nt, "FieldSimulation");
 
-        // Reduced counts keep the real-time demo smooth; regenerateFieldGamePieces() (no args) uses
-        // the official ~408 + 48 for accuracy.
-        arena.regenerateFieldGamePieces(80, 12);
+        // Fill the field with the full official FUEL layout (~408 in the NEUTRAL ZONE + 24 per DEPOT).
+        arena.regenerateFieldGamePieces();
         arena.addDriveTrain(robot);
         robot.setTerrain(Arena2026Rebuilt.rebuiltBump());
         intake = IntakeSimulation.overTheBumperIntake(arena, robot, FUEL, IntakeSimulation.Side.FRONT, 0.7, 0.4, 5);

@@ -2,15 +2,20 @@ import org.gradle.internal.os.OperatingSystem
 
 plugins {
     id 'java-library'
+    id 'maven-publish'
     id 'edu.wpi.first.GradleRIO' version '2026.2.1'
     id 'com.diffplug.spotless' version '7.0.0.BETA4'
 }
 
 ext.wpilibVersion = '2026.2.1'
 
+group = 'frc.physicssim'
+version = '0.1.0'
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
 }
 
 repositories {
@@ -51,6 +56,16 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+// Publish to mavenLocal so a robot project can add mavenLocal() + depend on
+// "frc.physicssim:FRC-Physical-Simulation:<version>".
+publishing {
+    publications {
+        library(MavenPublication) {
+            from components.java
+        }
+    }
 }
 
 // ---- Run the visualization demo (no HAL): starts an NT4 server for AdvantageScope ----

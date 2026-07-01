@@ -14,50 +14,52 @@ import frc.physicssim.drivetrain.SwerveDriveSimulation;
 import org.junit.jupiter.api.Test;
 
 class BumpRegionTest {
-    // Bump on x in [5.0, 5.8], full width, 0.08 m crest.
+    // The REBUILT bump spans x in [~3.46, ~4.59], y in [~1.57, ~3.43] (blue -Y side of the HUB).
+    private static final double ON_BUMP_Y = 2.5;
+
     private static BumpRegion bump() {
         return Arena2026Rebuilt.rebuiltBump();
     }
 
-    private static Pose2d flat(double x) {
-        return new Pose2d(x, 4.0, Rotation2d.kZero);
+    private static Pose2d at(double x) {
+        return new Pose2d(x, ON_BUMP_Y, Rotation2d.kZero);
     }
 
     @Test
     void flatOffTheBump() {
         BumpRegion bump = bump();
-        Pose3d pose = bump.elevate(flat(4.0));
+        Pose3d pose = bump.elevate(at(1.0));
         assertEquals(0.0, pose.getZ(), 1e-9);
         assertEquals(0.0, pose.getRotation().getY(), 1e-9); // pitch
-        assertEquals(0.0, bump.gradient(new Translation2d(4.0, 4.0)).getNorm(), 1e-9);
+        assertEquals(0.0, bump.gradient(new Translation2d(1.0, ON_BUMP_Y)).getNorm(), 1e-9);
     }
 
     @Test
     void noseUpOnTheClimbAndRaised() {
         BumpRegion bump = bump();
-        Pose3d pose = bump.elevate(flat(5.2)); // first half -> climbing
+        Pose3d pose = bump.elevate(at(3.7)); // first half -> climbing
         assertTrue(pose.getZ() > 0.0, "robot should be raised, z=" + pose.getZ());
         assertTrue(
                 pose.getRotation().getY() < 0.0,
                 "nose should pitch up, pitch=" + pose.getRotation().getY());
-        assertTrue(bump.gradient(new Translation2d(5.2, 4.0)).getX() > 0.0, "uphill gradient");
+        assertTrue(bump.gradient(new Translation2d(3.7, ON_BUMP_Y)).getX() > 0.0, "uphill gradient");
     }
 
     @Test
     void noseDownOnTheDescent() {
         BumpRegion bump = bump();
-        Pose3d pose = bump.elevate(flat(5.6)); // second half -> descending
+        Pose3d pose = bump.elevate(at(4.4)); // second half -> descending
         assertTrue(
                 pose.getRotation().getY() > 0.0,
                 "nose should pitch down, pitch=" + pose.getRotation().getY());
-        assertTrue(bump.gradient(new Translation2d(5.6, 4.0)).getX() < 0.0, "downhill gradient");
+        assertTrue(bump.gradient(new Translation2d(4.4, ON_BUMP_Y)).getX() < 0.0, "downhill gradient");
     }
 
     @Test
     void robotCrossesBumpAndIsElevatedDuringCrossing() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        SwerveDriveSimulation robot =
-                new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(3.5, 1.5, Rotation2d.kZero));
+        SwerveDriveSimulation robot = new SwerveDriveSimulation(
+                new DriveTrainSimulationConfig(), new Pose2d(2.5, ON_BUMP_Y, Rotation2d.kZero));
         arena.addDriveTrain(robot);
         robot.setTerrain(Arena2026Rebuilt.rebuiltBump());
 
@@ -69,7 +71,7 @@ class BumpRegionTest {
         }
 
         assertTrue(maxZ > 0.05, "robot should have been lifted near the crest, maxZ=" + maxZ);
-        assertTrue(robot.getActualPose().getX() > 6.0, "robot should have crossed the bump");
+        assertTrue(robot.getActualPose().getX() > 5.5, "robot should have crossed the bump");
     }
 
     @Test

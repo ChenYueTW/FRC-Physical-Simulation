@@ -58,16 +58,16 @@ class DriveTrainSimulationTest {
     @Test
     void collidesWithHubInsteadOfDrivingThrough() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        // Aim straight at the central HUB.
-        SwerveDriveSimulation robot = robotAt(arena, 4.0, Rebuilt2026.FIELD_CENTER.getY());
+        // Approach the blue HUB head-on from the west.
+        SwerveDriveSimulation robot = robotAt(arena, 1.5, Rebuilt2026.BLUE_HUB_CENTER.getY());
 
         robot.setRobotSpeeds(new ChassisSpeeds(3.5, 0.0, 0.0));
         step(arena, 150); // 3 s
 
         double x = robot.getActualPose().getX();
-        assertTrue(x > 5.0, "robot should have driven toward the HUB, x=" + x);
-        // It must be stopped on the near side of the HUB, not on the far side.
-        assertTrue(x < Rebuilt2026.FIELD_CENTER.getX() - 0.4, "robot drove through the HUB, x=" + x);
+        assertTrue(x > 2.0, "robot should have driven toward the HUB, x=" + x);
+        // Stopped on the near (west) side of the HUB, not through it.
+        assertTrue(x < Rebuilt2026.BLUE_HUB_CENTER.getX() - 0.4, "robot drove through the HUB, x=" + x);
     }
 
     @Test

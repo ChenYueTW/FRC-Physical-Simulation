@@ -61,7 +61,7 @@ Mirrors maple-sim's proven layering, as our own code.
 |---|---|
 | `SimConstants` | SI constants + 2026 REBUILT geometry/specs (`Rebuilt2026`) |
 | `SimulatedComponent` | interface for high-frequency logic; `simulationSubTick(i, dt)` runs before each world step |
-| `arena/` | `SimulatedArena` (dyn4j `World`, sub-tick stepping, game-piece/projectile/drivetrain registries, `Pose3d[]` getters), `FieldMap` (walls/obstacles), `Arena2026Rebuilt` (walls + HUB, `rebuiltBump()`, `resetFieldForAuto()`) |
+| `arena/` | `SimulatedArena` (dyn4j `World`, sub-tick stepping, game-piece/projectile/drivetrain registries, `Pose3d[]` getters), `FieldMap` (walls/obstacles), `Arena2026Rebuilt` (perimeter walls + both square HUBs, `rebuiltBump()`, `regenerateFieldGamePieces()` → NEUTRAL ZONE pile + both DEPOTs) |
 | `gamepieces/` | `GamePiece`, `GamePieceOnField` (dyn4j body), `GamePieceProjectile` (3D ballistic overlay with target/landing callbacks); `rebuilt/` → `RebuiltFuelOnField`, `RebuiltFuelProjectile` |
 | `drivetrain/` | `DriveTrainSimulationConfig`, `AbstractDriveTrainSimulation` (bumper body + traction-limited velocity controller + terrain slope force), `SwerveDriveSimulation` (holonomic setpoints) |
 | `intake/` | `IntakeSimulation` (robot-frame pickup region; `overTheBumperIntake` / `inTheFrameIntake`, capacity, storage) |

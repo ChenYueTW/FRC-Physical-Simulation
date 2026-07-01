@@ -6,6 +6,7 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import frc.physicssim.SimConstants;
 import frc.physicssim.SimConstants.Rebuilt2026;
 import frc.physicssim.arena.Arena2026Rebuilt;
 import frc.physicssim.drivetrain.DriveTrainSimulationConfig;
@@ -27,13 +28,13 @@ import frc.physicssim.logging.SimLogger;
  * <p>This is a test/visualization harness, not part of the library API.
  */
 public final class SimDemo {
-    private static final Translation2d HUB = Rebuilt2026.FIELD_CENTER;
+    private static final Translation2d HUB = Rebuilt2026.BLUE_HUB_CENTER;
     private static final String FUEL = RebuiltFuelOnField.TYPE;
     private static final double DT = 0.02;
 
     private final Arena2026Rebuilt arena = new Arena2026Rebuilt();
     private final SwerveDriveSimulation robot =
-            new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(2.0, 2.0, Rotation2d.kZero));
+            new SwerveDriveSimulation(new DriveTrainSimulationConfig(), new Pose2d(1.5, 2.5, Rotation2d.kZero));
     private IntakeSimulation intake;
 
     private double elapsed = 0.0;
@@ -54,7 +55,9 @@ public final class SimDemo {
         nt.startServer();
         SimLogger logger = new SimLogger(nt, "FieldSimulation");
 
-        arena.resetFieldForAuto();
+        // Reduced counts keep the real-time demo smooth; regenerateFieldGamePieces() (no args) uses
+        // the official ~408 + 48 for accuracy.
+        arena.regenerateFieldGamePieces(80, 12);
         arena.addDriveTrain(robot);
         robot.setTerrain(Arena2026Rebuilt.rebuiltBump());
         intake = IntakeSimulation.overTheBumperIntake(arena, robot, FUEL, IntakeSimulation.Side.FRONT, 0.7, 0.4, 5);
@@ -92,14 +95,14 @@ public final class SimDemo {
 
     /** Phase 1: intake the FUEL cluster. Phase 2: cross the BUMP. Phase 3: shoot at the HUB. */
     private void runScenario() {
-        if (elapsed < 3.0) {
+        if (elapsed < 3.8) {
             intake.setRunning(true);
-            robot.setRobotSpeeds(new ChassisSpeeds(1.0, 0.4, 0.0)); // drive into the FUEL cluster
-        } else if (elapsed < 4.3) {
+            robot.setRobotSpeeds(new ChassisSpeeds(1.8, 0.0, 0.0)); // cross the bump, drive to the NEUTRAL ZONE
+        } else if (elapsed < 5.0) {
+            robot.setRobotSpeeds(new ChassisSpeeds(0.8, 0.0, 0.0)); // keep gathering FUEL from the pile
+        } else if (elapsed < 6.0) {
             intake.setRunning(false);
-            robot.setRobotSpeeds(new ChassisSpeeds(1.6, 0.0, 0.0)); // cross the bump, stop short of the HUB
-        } else if (elapsed < 5.2) {
-            aimAtHub(); // settle and turn toward the HUB
+            aimAtHub(); // settle and turn back toward the blue HUB
         } else {
             aimAtHub();
             if (elapsed - lastShot > 0.6) {
@@ -122,15 +125,23 @@ public final class SimDemo {
         }
         shotsFired++;
         Pose2d pose = robot.getActualPose();
+        double launchHeight = 0.6;
+        double distance = HUB.getDistance(pose.getTranslation());
+        // Solve a 45-degree shot for the exit speed that hits the HUB opening at this distance:
+        // v = d * sqrt(g / (d - dh)), where dh is the height gain to the target.
+        double heightGain = Rebuilt2026.HUB_TARGET_HEIGHT_METERS - launchHeight;
+        double speed = distance * Math.sqrt(SimConstants.GRAVITY / Math.max(0.1, distance - heightGain));
+
         Rotation2d yaw = new Rotation2d(HUB.getX() - pose.getX(), HUB.getY() - pose.getY());
         RebuiltFuelProjectile shot = RebuiltFuelProjectile.fromLaunch(
                 arena,
-                new Translation3d(pose.getX(), pose.getY(), 0.6),
-                5.5,
+                new Translation3d(pose.getX(), pose.getY(), launchHeight),
+                speed,
                 yaw,
                 Math.toRadians(45),
                 new Translation3d());
-        shot.withTarget(new Translation3d(HUB.getX(), HUB.getY(), 1.2), 0.7, () -> scored++);
+        shot.withTarget(
+                new Translation3d(HUB.getX(), HUB.getY(), Rebuilt2026.HUB_TARGET_HEIGHT_METERS), 0.6, () -> scored++);
         shot.launch();
     }
 

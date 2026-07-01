@@ -18,10 +18,10 @@ class SimulatedArenaTest {
     }
 
     @Test
-    void resetForAutoPopulatesFuel() {
+    void regenerateGamePiecesPlacesNeutralZoneAndBothDepots() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        arena.resetFieldForAuto();
-        assertEquals(9, arena.getGamePiecesArrayByType(RebuiltFuelOnField.TYPE).length);
+        arena.regenerateFieldGamePieces(20, 6); // neutral + 2 depots
+        assertEquals(20 + 6 + 6, arena.getGamePiecesArrayByType(RebuiltFuelOnField.TYPE).length);
 
         arena.clearGamePieces();
         assertEquals(0, arena.getGamePiecesArrayByType(RebuiltFuelOnField.TYPE).length);
@@ -30,7 +30,7 @@ class SimulatedArenaTest {
     @Test
     void undisturbedFuelStaysPut() {
         Arena2026Rebuilt arena = new Arena2026Rebuilt();
-        Translation2d start = new Translation2d(4.0, 4.0);
+        Translation2d start = new Translation2d(2.0, 2.0); // clear of the HUBs and walls
         RebuiltFuelOnField fuel = new RebuiltFuelOnField(start);
         arena.addGamePiece(fuel);
 
